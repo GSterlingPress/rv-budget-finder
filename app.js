@@ -1,31 +1,11 @@
-const form=document.querySelector("#search");
-const statusBox=document.querySelector("#status");
-const results=document.querySelector("#results");
-const fields={
-  location:document.querySelector("#location"),
-  from:document.querySelector("#from"),
-  to:document.querySelector("#to"),
-  guests:document.querySelector("#guests"),
-  budget:document.querySelector("#budget"),
-  radius:document.querySelector("#radius")
-};
+const form=document.querySelector("#search"),statusBox=document.querySelector("#status"),results=document.querySelector("#results");
+const fields={location:document.querySelector("#location"),earliest:document.querySelector("#earliest"),latest:document.querySelector("#latest"),minNights:document.querySelector("#minNights"),maxNights:document.querySelector("#maxNights"),from:document.querySelector("#from"),to:document.querySelector("#to"),guests:document.querySelector("#guests"),budget:document.querySelector("#budget"),radius:document.querySelector("#radius")};
+let dateMode="flex";
 const money=n=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(n);
-function nights(a,b){return Math.max(1,Math.round((new Date(b)-new Date(a))/86400000))}
-function demoTrips(q){
-  const n=nights(q.from,q.to),base=[89,104,119,136,154,178];
-  return base.map((rate,i)=>{
-    const rental=rate*n,service=Math.round(rental*.1),protection=18*n,taxes=Math.round((rental+service)*.075),fuel=Math.round((70+i*18)*3.35/12),total=rental+service+protection+taxes+fuel;
-    return{id:i+1,title:["Compact campervan","Easy-drive Class B","Family travel trailer","Adventure camper","Class C motorhome","Roomy Class C"][i],rate,rental,service,protection,taxes,fuel,total,source:"Demo inventory",url:"https://www.outdoorsy.com/"}
-  }).filter(x=>x.total<=q.budget).sort((a,b)=>a.total-b.total)
-}
-function render(items,q){
-  results.innerHTML=items.length?items.map((x,i)=>`<article class="card"><div><span class="badge">#${i+1} • Under budget by ${money(q.budget-x.total)}</span><h2>${x.title}</h2><div class="price">${money(x.total)} estimated trip total</div><div class="muted">${money(x.rate)}/night • ${nights(q.from,q.to)} nights • ${x.source}</div><div class="breakdown">Rental ${money(x.rental)} + service fee ${money(x.service)} + protection ${money(x.protection)} + estimated tax ${money(x.taxes)} + estimated fuel ${money(x.fuel)}</div></div><div class="action"><a class="book" href="${x.url}" target="_blank" rel="sponsored noopener">View rental</a></div></article>`).join(""):`<article class="card"><div><h2>No trips under ${money(q.budget)}</h2><p class="muted">Try a larger budget, shorter trip, or wider search radius.</p></div></article>`
-}
-form.addEventListener("submit",e=>{
-  e.preventDefault();
-  const q={location:fields.location.value.trim(),from:fields.from.value,to:fields.to.value,guests:+fields.guests.value,budget:+fields.budget.value,radius:+fields.radius.value};
-  if(new Date(q.to)<=new Date(q.from)){statusBox.hidden=false;statusBox.textContent="Return date must be after pickup date.";results.innerHTML="";return}
-  statusBox.hidden=false;
-  statusBox.textContent="V1 validation mode: showing the real total-cost ranking experience with demo inventory. Live Outdoorsy inventory turns on when the Partner ID is approved.";
-  render(demoTrips(q),q)
-});
+const days=(a,b)=>Math.round((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/86400000);
+const addDays=(d,n)=>{const x=new Date(d+"T12:00:00");x.setDate(x.getDate()+n);return x.toISOString().slice(0,10)};
+document.querySelectorAll(".tab").forEach(btn=>btn.addEventListener("click",()=>{dateMode=btn.dataset.mode;document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===btn));document.querySelector("#flex-fields").hidden=dateMode!=="flex";document.querySelector("#exact-fields").hidden=dateMode!=="exact";results.innerHTML="";statusBox.hidden=true}));
+function bestDemoWindow(q){if(q.mode==="exact")return{from:q.from,to:q.to,nights:days(q.from,q.to)};const span=days(q.earliest,q.latest),max=Math.min(q.maxNights,span),min=Math.min(q.minNights,max);return{from:q.earliest,to:addDays(q.earliest,min),nights:min}}
+function demoTrips(q){const trip=bestDemoWindow(q),n=trip.nights,base=[89,104,119,136,154,178];return base.map((rate,i)=>{const rental=rate*n,service=Math.round(rental*.1),protection=18*n,taxes=Math.round((rental+service)*.075),fuel=Math.round((70+i*18)*3.35/12),total=rental+service+protection+taxes+fuel;return{id:i+1,title:["Compact campervan","Easy-drive Class B","Family travel trailer","Adventure camper","Class C motorhome","Roomy Class C"][i],rate,rental,service,protection,taxes,fuel,total,from:trip.from,to:trip.to,nights:n,source:"Demo inventory",url:"https://www.outdoorsy.com/"}}).filter(x=>x.total<=q.budget).sort((a,b)=>a.total-b.total)}
+function render(items,q){results.innerHTML=items.length?items.map((x,i)=>`<article class="card"><div><span class="badge">#${i+1} • Under budget by ${money(q.budget-x.total)}</span><h2>${x.title}</h2><div class="price">${money(x.total)} estimated trip total</div><div class="muted">${x.from} → ${x.to} • ${x.nights} nights • ${money(x.rate)}/night • ${x.source}</div><div class="breakdown">Rental ${money(x.rental)} + service fee ${money(x.service)} + protection ${money(x.protection)} + estimated tax ${money(x.taxes)} + estimated fuel ${money(x.fuel)}</div></div><div class="action"><a class="book" href="${x.url}" target="_blank" rel="sponsored noopener">View rental</a></div></article>`).join(""):`<article class="card"><div><h2>No trips under ${money(q.budget)}</h2><p class="muted">Try a larger budget, shorter trip, or wider search radius.</p></div></article>`}
+form.addEventListener("submit",e=>{e.preventDefault();const q={mode:dateMode,location:fields.location.value.trim(),earliest:fields.earliest.value,latest:fields.latest.value,minNights:+fields.minNights.value,maxNights:+fields.maxNights.value,from:fields.from.value,to:fields.to.value,guests:+fields.guests.value,budget:+fields.budget.value,radius:+fields.radius.value};let error="";if(q.mode==="flex"){if(!q.earliest||!q.latest)error="Enter your earliest departure and latest return.";else if(days(q.earliest,q.latest)<1)error="Latest return must be after earliest departure.";else if(q.minNights<1||q.maxNights<q.minNights)error="Maximum nights must be at least the minimum nights.";else if(days(q.earliest,q.latest)<q.minNights)error="Your date window is shorter than your minimum trip length."}else{if(!q.from||!q.to)error="Enter both pickup and return dates.";else if(days(q.from,q.to)<1)error="Return date must be after pickup date."}if(error){statusBox.hidden=false;statusBox.textContent=error;results.innerHTML="";return}statusBox.hidden=false;statusBox.textContent=q.mode==="flex"?"Flexible-date mode is on. V1 demo inventory shows the search experience; live inventory will test all valid date combinations when the partner feed is connected.":"Exact-date mode is on. V1 demo inventory is shown until the live partner feed is connected.";render(demoTrips(q),q)});
