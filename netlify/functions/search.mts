@@ -23,7 +23,7 @@ async function searchOne({address,from,to,guests,radius,budget}){
     const a=row?.attributes||row||{},rate=priceOf(a); if(!rate)return null;
     const rental=Math.round(rate*nights),service=Math.round(rental*.10),protection=18*nights,taxes=Math.round((rental+service)*.075),fuel=Math.round(90*3.35/12),total=rental+service+protection+taxes+fuel;
     const slug=a.slug||row?.id||"rv-search";
-    return{id:String(row?.id||i),title:a.name||a.vehicle_make||a.title||"RV rental",rate:Math.round(rate),rental,service,protection,taxes,fuel,total,from,to,nights,source:"Outdoorsy staging",url:"https://www.outdoorsy.com/rv-rental/"+String(slug).replace(/^\//,"")}
+    const image=a.primary_image_url||a.primary_image?.url||a.photo_url||a.image_url||a.images?.[0]?.url||a.photos?.[0]?.url||null;\n    return{id:String(row?.id||i),title:a.name||a.vehicle_make||a.title||"RV rental",image,rate:Math.round(rate),rental,service,protection,taxes,fuel,total,from,to,nights,source:"Outdoorsy staging",url:"https://www.outdoorsy.com/rv-rental/"+String(slug).replace(/^\\//,"")}
   }).filter(Boolean).filter(x=>x.total<=budget);
 }
 export default async(req)=>{
