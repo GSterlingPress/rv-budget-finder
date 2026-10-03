@@ -48,7 +48,15 @@ export default async(req)=>{
       const rows=await Promise.all(batch.map(w=>searchOne({address,...w,guests,radius,budget})));
       rows.forEach(x=>all.push(...x));
     }
-    const seen=new Set(),items=all.sort((a,b)=>a.total-b.total).filter(x=>{const k=x.id+"|"+x.from+"|"+x.to;if(seen.has(k))return false;seen.add(k);return true}).slice(0,10);
+    const groups=new Map();
+    for(const x of all.sort((a,b)=>a.total-b.total)){
+      if(!groups.has(x.id)) groups.set(x.id,{...x,alternateDates:[]});
+      else{
+        const g=groups.get(x.id);
+        if(g.alternateDates.length<4&&!g.alternateDates.some(d=>d.from===x.from&&d.to===x.to)) g.alternateDates.push({from:x.from,to:x.to,nights:x.nights,total:x.total});
+      }
+    }
+    const items=[...groups.values()].sort((a,b)=>a.total-b.total).slice(0,10);
     return Response.json({items,meta:{combinationsSearched:windows.length,candidatesFound:all.length,mode}});
   }catch(e){return Response.json({error:"Partner search failed"},{status:502})}
 };
